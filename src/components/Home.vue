@@ -24,8 +24,8 @@
             tabindex="2" color="#d81b60" />
         </v-form>
 
-        <v-btn @click="newMessage()" :disabled="disableForm" rounded x-large class="mb-5" color="#d96b93">
-          {{ disableForm ? "L'envoi est desactiver" : "Envoyer" }}
+        <v-btn @click="newMessage()" :disabled="form.disable" rounded x-large class="mb-5" color="#d96b93">
+          {{ form.message }}
         </v-btn>
         <router-link class="page-link text-center" to="/status">
           <p>Ou en est mon message ?</p>
@@ -72,17 +72,41 @@ export default {
       color: '#52C41A',
       text: 'Fonctionnel',
     },
-    disableForm: false
+    form: {
+      disable: true,
+      message: 'envoyer'
+    }
   }),
   beforeMount() {
-    axios.get(`/api/getip`)
+    // https://api.ipify.org/?format=json /api/getip
+    axios.get(`https://api.ipify.org/?format=json`)
       .then((res) => {
-        axios.get(`/api/getipinfos/${res.data.ip}?api-key=b2b8f9e599738dbdda1df2f419c353f74c0cfd07a296fa1e1d3dadf4`)
+        // https://api.ipdata.co/  /api/getipinfos/
+        axios.get(`https://api.ipdata.co/${res.data.ip}?api-key=b2b8f9e599738dbdda1df2f419c353f74c0cfd07a296fa1e1d3dadf4`)
           .then((res) => {
             this.userInfos = { ...res.data }
+            axios.get(`${process.env.VUE_APP_API_URL}/banneds?ip=${this.userInfos.ip}&_limit=1`)
+              .then((res) => {
+                if (res.data.length != 0) {
+                  this.$router.push({ name: 'Banned', params: { reason: res.data[0].reason } })
+                }
+                axios.get(`${process.env.VUE_APP_API_URL}/messages?sender=${this.userInfos.ip}&status=0`)
+                  .then((res) => {
+                    if (res.data.length != 0) {
+                      console.log('passed')
+                      this.form = {
+                        disable: true,
+                        message: 'Tu as deja un message en attente'
+                      }
+                    }
+                  })
+              })
+
+
           })
       })
-
+  },
+  mounted() {
     axios.get(`${process.env.VUE_APP_API_URL}/infos?info=bot_status&_limit=1`)
       .then((res) => {
         switch (res.data[0].status) {
@@ -91,28 +115,36 @@ export default {
               color: "#52C41A",
               text: "Fonctionnel",
             }
-            this.disableForm = false
+            this.form = {
+              disable: false,
+              message: 'envoyer'
+            }
             break;
           case '1':
             this.bot_status = {
               color: "orange",
               text: "Mode lent",
             }
-            this.disableForm = false
+            this.form = {
+              disable: false,
+              message: 'envoyer'
+            }
             break;
           case '2':
             this.bot_status = {
               color: "red",
               text: "Bot arreter",
             }
-            this.disableForm = true
+            this.form = {
+              disable: true,
+              message: "l'envoi est desactiver"
+            }
             break;
           case '3':
             this.bot_status = {
               color: "orange",
               text: "En test - mode lent",
             }
-            this.disableForm = true
             break;
           default:
             break;
@@ -140,6 +172,10 @@ export default {
         .then((res) => {
           this.alert = { display: true, type: 'sucess', color: 'green', message: 'Message envoyé' }
           this.message = { target: '', message: '', id: res.data.message_id }
+          this.form = {
+            disable: true,
+            message: 'Tu as deja un message en attente'
+          }
           this.removeNotify()
 
         })
