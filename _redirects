@@ -1,0 +1,2 @@
+/api/getip/ https://api.ipify.org/?format=json 200
+/api/getipinfos/* https://api.ipdata.co/:splat  200
